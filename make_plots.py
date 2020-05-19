@@ -1,18 +1,9 @@
 #!/usr/bin/env python3 
-import os, subprocess
 import logging
 from pathlib import Path
-
-import h5py
-import hsluv
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import ticker
-import glob
-
-from scipy.interpolate import interp1d, interp2d
-from matplotlib.gridspec import GridSpec
-from scipy.integrate import quad
 
 fontsmall, fontnormal, fontlarge = 5, 6, 7
 offblack = '#262626'
@@ -25,13 +16,13 @@ fullheight = 200/resolution
 
 plt.rcdefaults()
 plt.rcParams.update({
-    'font.family': 'DejaVu Sans-Serif',
-    'font.sans-serif': ['Lato'],
-    'mathtext.fontset': 'custom',
-    'mathtext.default': 'it',
-    'mathtext.rm': 'sans',
-    'mathtext.it': 'sans:italic:medium',
-    'mathtext.cal': 'sans',
+    #'font.family': 'DejaVu Sans',
+    #'font.sans-serif': ['Lato'],
+    #'mathtext.fontset': 'custom',
+    #'mathtext.default': 'it',
+    #'mathtext.rm': 'sans',
+    #'mathtext.it': 'sans:italic:medium',
+    #'mathtext.cal': 'sans',
     'font.size': fontnormal,
     'legend.fontsize': fontsmall,
     'axes.labelsize': fontnormal,
@@ -137,35 +128,6 @@ def auto_ticks(ax, axis='both', minor=False, **kwargs):
         if minor:
             axis.set_minor_locator(ticker.AutoMinorLocator(minor))
 
-def darken(rgb, amount=.3):
-    """
-    Darken a color by the given amount in HSLuv space.
-
-    """
-    h, s, l = hsluv.rgb_to_hsluv(rgb)
-    return hsluv.hsluv_to_rgb((h, s, (1 - amount)*l))
-
-
-def obs_color_hsluv(obs, nPDF):
-    """
-    Return a nice color for the given observable in HSLuv space.
-    Use obs_color() to obtain an RGB color.
-
-    """
-    if obs == 'RAA':
-        return 250, 90, 55
-
-    if 'V2' in obs:
-        return 250, 90, 55
-
-    if obs == 'qhat':
-        return 250, 90, 55
-
-    if obs == 'posterior':
-        return 250, 90, 55
-
-    raise ValueError('unknown observable: {} {}'.format(obs, subobs))
-
 
 def Rlm(l0,m0):
     def get_data(l0, m0):
@@ -178,32 +140,36 @@ def Rlm(l0,m0):
         for l in np.arange(0, Lmax+1):
             Alm[l] = {}
             for m in np.arange(-l, l+1):
-                print(l,m)
                 Alm[l][m] = y[(l**2+(m+l)).astype(int)]
         return x, Lmax, Alm
     x, Lmax, Alm = get_data(l0, m0)
 
     fig, axes = plt.subplots(ncols=Lmax+1, nrows=2, figsize=(textwidth, textwidth*.45), sharex=True, sharey=True)
     for l, axc in zip(np.arange(0, Lmax+1), axes.T):
+        ax1, ax2 = axc
+        Nre = Nim = 0
         for m in np.arange(-l, l+1):
             color = plt.cm.winter((m+l+0.5)/(2*l+1))
-            ax1, ax2 = axc
             y = Alm[l][m]
             if (np.abs(y.real)).max()>1e-5:
+                Nre += 1
                 ax1.plot(x, y.real, '-', color=color, label=r"$m={:d}$".format(m), alpha=1)
             if (np.abs(y.imag)).max()>1e-5:
+                Nim += 1
                 ax2.plot(x, y.imag, '-', color=color, label=r"$m={:d}$".format(m), alpha=1)
-            if l==0:
-                ax1.set_ylabel(r"$\mathfrak{Re}A_{lm}$")
-                ax2.set_ylabel(r"$\mathfrak{Im}A_{lm}$")
+        if l==0:
+            ax1.set_ylabel(r"$\mathfrak{Re}A_{lm}$")
+            ax2.set_ylabel(r"$\mathfrak{Im}A_{lm}$")
+        if Nre>0:
             ax1.legend()
-            ax1.set_title(r"$l={:d}$".format(l))
+        if Nim>0:
             ax2.legend()
-            ax2.set_xticks([-1,0,1])
-            ax2.set_xticklabels(["$0.1$","$1$","$10$"])
-            ax2.set_xlabel(r"$\tau/\tau_R$")
-            ax2.set_xlim(-1.1, 1.3)
-            ax2.set_ylim(-1,1)
+        ax1.set_title(r"$l={:d}$".format(l))
+        ax2.set_xticks([-1,0,1])
+        ax2.set_xticklabels(["$0.1$","$1$","$10$"])
+        ax2.set_xlabel(r"$\tau/\tau_R$")
+        ax2.set_xlim(-1.1, 1.3)
+        ax2.set_ylim(-1,1)
     plt.subplots_adjust(wspace=.05, hspace=.05, top=.83, left=.08, right=.99, bottom=.15)
     plt.suptitle(r"$l_0={:d}, m_0={:d}$".format(l0,m0)+r", $(\eta/s)_{\mathrm{eff}=0.2}, \kappa=1, k=1$ GeV")
 
